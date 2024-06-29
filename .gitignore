@@ -5,3 +5,6 @@ a.out
 #Executeable files
 client
 server
+
+#vscode
+.vscode
