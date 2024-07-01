@@ -35,7 +35,7 @@ int main() {
     while (1) {
         printf("kali@server:~/$ ");
         memset(buffer, 0, BUF_SIZE);
-        scanf("%s", buffer);
+        fgets(buffer, BUF_SIZE, stdin);
 
         buf_len = write(sock, buffer, strlen(buffer));
 
@@ -44,13 +44,13 @@ int main() {
             exit(1);
         }
 
-        //buf_len = read(sock, buffer, 255);
+        buf_len = read(sock, buffer, BUF_SIZE);
 
         if (buf_len < 0){
             perror("ERROR while reading from socket");
             exit(1);
         }
-        printf("server replied: %s \n", buffer);
+        printf("%s \n", buffer);
 
         // escape this loop, if the server sends message "quit"
 
