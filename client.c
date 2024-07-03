@@ -44,6 +44,10 @@ int main() {
             exit(1);
         }
 
+        // escape this loop, if the server sends message "quit"
+        if (!bcmp(buffer, "exit", 4))
+            break;
+
         buf_len = read(sock, buffer, BUF_SIZE);
 
         if (buf_len < 0){
@@ -51,11 +55,6 @@ int main() {
             exit(1);
         }
         printf("%s \n", buffer);
-
-        // escape this loop, if the server sends message "quit"
-
-        if (!bcmp(buffer, "quit", 4))
-            break;
     }
 
     return 0;
