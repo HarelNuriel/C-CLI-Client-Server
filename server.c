@@ -10,6 +10,12 @@
 #define IP "127.0.0.1"
 #define BUF_SIZE 1024
 
+
+/*
+Takes in a command and the a pointer to an array of strings and puts each lines of the command's output in its respective index
+
+Returns the length of the output
+*/
 void execute_command(char command[], char* output){
 
     FILE *fp;
