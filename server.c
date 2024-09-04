@@ -1,8 +1,10 @@
+#include <arpa/inet.h>
 #include <asm-generic/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -13,39 +15,67 @@
 /*
 Takes in a command and the a pointer to an array of strings and puts each lines
 of the command's output in its respective index
-
-Returns the length of the output
 */
-void execute_command(char command[], char *output) {
+void execute_command(int connected_sock, char command[], char *output) {
 
   FILE *fp;
   char val[1024];
-  int i = 0, j = 0;
+  int i = 0, j = 0, flag;
 
   fp = popen(command, "r");
   if (fp == NULL) {
     return;
-    exit(1);
   }
 
   /* Read the output a line at a time - output it. */
   while (fgets(val, sizeof(output), fp) != NULL) {
-    // printf("%s", val);
-    if ((val[i] >= 'a' && val[i] <= 'z') || (val[i] >= 'A' && val[i] <= 'Z'))
-      while (val[i] != '\0') {
-        output[j] = val[i];
-        i++;
-        j++;
+
+    /*
+     Iterate through the command output and fill the output buffer.
+     Leave one empty space in the output buffer for null terminator to avoid seg
+     fault
+     */
+    while (val[i] != '\0' && j < BUF_SIZE - 2) {
+      output[j] = val[i];
+      i++;
+      j++;
+    }
+
+    // If the buffer is full send it to the client and continue iterating
+    // through the command output
+    if (j == BUF_SIZE - 2) {
+
+      // Add null terminator to end the string and avoid seg fault
+      output[BUF_SIZE - 1] = '\0';
+      flag = write(connected_sock, output, BUF_SIZE);
+
+      if (flag < 0) {
+        perror("Error sending the output buffer");
+        continue;
       }
+
+      memset(output, 0, BUF_SIZE);
+      j = 0;
+      continue;
+    }
 
     i = 0;
   }
 
-  output[j + 1] = '\0';
+  // FIX: Find out why the last portion of a multi payload chain not get sent
 
-  /* close */
+  // If the size was an exact multiple of 1024 do not send the output again
+  output[j + 1] = '\0';
+  flag = write(connected_sock, output, j + 2);
+
+  if (flag < 0) {
+    perror("Error sending the output buffer");
+  }
+
+  // close
   pclose(fp);
 
+  // Execution complete
   return;
 }
 
@@ -73,8 +103,7 @@ int main() {
   }
   server.sin_family = AF_INET;
   server.sin_port = htons(PORT);
-  flag =
-      inet_pton(AF_INET, "127.0.0.1", (struct sockaddr_in *)&server.sin_addr);
+  flag = inet_pton(AF_INET, IP, (struct sockaddr_in *)&server.sin_addr);
 
   // Attaching (Binding) the socket to port 8080
   if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
@@ -99,7 +128,7 @@ int main() {
   while (1) {
     i = 0;
     memset(buffer, 0, BUF_SIZE);
-    memset(command, 0, BUF_SIZE);
+    memset(command, 0, 256);
     memset(output, 0, BUF_SIZE);
     buf_len = read(connected_sock, buffer, BUF_SIZE);
 
@@ -108,20 +137,18 @@ int main() {
       exit(1);
     }
 
+    // Escape this loop, if the client sends message "exit"
+    if (!bcmp(buffer, "exit", 4)) {
+      break;
+    }
+
     strcpy(command, buffer);
 
-    execute_command(command, output);
-    buf_len = write(connected_sock, output, BUF_SIZE);
+    execute_command(connected_sock, command, output);
 
     if (buf_len < 0) {
       perror("ERROR in writing to socket");
-      exit(1);
     }
-
-    // free(command);
-    //  escape this loop, if the client sends message "exit"
-    if (!bcmp(buffer, "exit", 4))
-      break;
   }
 
   free(output);
