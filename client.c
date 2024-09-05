@@ -6,11 +6,22 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PORT 8080
-#define IP "127.0.0.1"
 #define BUF_SIZE 1024
 
-int main() {
+int main(int argc, char **argv) {
+
+  if (argc < 3) {
+    printf("Usage: client <server_ip> <server_port>");
+    exit(1);
+  }
+
+  const char *IP = argv[1];
+  int PORT = strtol(argv[2], NULL, 10);
+
+  if (PORT > 65535 || PORT < 0) {
+    printf("Error: Invalid port number %d", PORT);
+    exit(1);
+  }
 
   int connection_status, sock;
   ssize_t buf_len;
@@ -49,7 +60,6 @@ int main() {
     if (!bcmp(buffer, "exit", 4))
       break;
 
-    // FIX: Find out why the last portion of a big message is not printed
     buf_len = read(sock, buffer, BUF_SIZE);
 
     if (buf_len < 0) {
